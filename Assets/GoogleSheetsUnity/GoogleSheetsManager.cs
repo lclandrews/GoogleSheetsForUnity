@@ -20,31 +20,6 @@ using UnityEngine;
 public delegate void ServiceInitializedResponse(bool success);
 public delegate void SheetsRequestResponse(bool success, JsonObject sheets);
 
-public struct AsyncOperation
-{
-    public static AsyncOperation empty { get { return new AsyncOperation(false, false, false); } }
-
-    // Returns a new operation with an updated result, sets inProgress = true & broadcastResult = true
-    public AsyncOperation ConstructUpdatedResult(bool resultSuccess) { return new AsyncOperation(resultSuccess, false, true); }
-    // Returns a new operation with inProgress set to true
-    public AsyncOperation ConstructInProgress() { return new AsyncOperation(this.resultSuccess, true, this.broadcastResult); }
-    // Returns a new operation with broadcastResult set to false
-    public AsyncOperation ConstructClearBroadcast() { return new AsyncOperation(this.resultSuccess, this.inProgress, false); }
-
-    public bool resultSuccess { get; private set; }
-    public bool inProgress { get; private set; }
-    public bool broadcastResult { get; private set; }
-
-    public bool ready { get { return !inProgress && !broadcastResult; } }
-
-    public AsyncOperation(bool resultSuccess, bool inProgress, bool broadcastResult)
-    {
-        this.resultSuccess = resultSuccess;
-        this.inProgress = inProgress;
-        this.broadcastResult = broadcastResult;
-    }
-}
-
 public class GoogleSheetsManager : MonoBehaviour
 {
     private static string applicationName = "Unity";
@@ -53,10 +28,9 @@ public class GoogleSheetsManager : MonoBehaviour
     public string spreadsheetId = "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms";
     public bool immediatelyRequestData = false;
 
-    public AsyncOperation initialized { get; private set; } = AsyncOperation.empty;
-    public AsyncOperation retrievingData { get; private set; } = AsyncOperation.empty;
+    public bool initialized { get; private set; } = false;
+    public bool retrievingData { get; private set; } = false;
 
-    private ServiceInitializedResponse onInitialized = null;
     private SheetsRequestResponse onRequestResponse = null;
 
     private JsonObject sheets = null;
@@ -68,107 +42,79 @@ public class GoogleSheetsManager : MonoBehaviour
 
     private void Awake()
     {
-        InitializeServiceApiKey(null);
+        InitializeServiceApiKey();
     }
 
     private void Update()
     {
-        if(initialized.broadcastResult)
-        {
-            initialized = initialized.ConstructClearBroadcast();
-            onInitialized?.Invoke(initialized.resultSuccess);
-            onInitialized = null;
-        }
-
-        if(retrievingData.broadcastResult)
-        {
-            retrievingData = retrievingData.ConstructClearBroadcast();
-            onRequestResponse?.Invoke(retrievingData.resultSuccess, sheets);
-            onRequestResponse = null;
-        }
-
-        if(initialized.resultSuccess && immediatelyRequestData)
+        if(initialized && immediatelyRequestData)
         {
             immediatelyRequestData = false;
             GetSheets(null);
         }
     }
 
-    private bool InitializeServiceApiKey(ServiceInitializedResponse response)
+    private bool InitializeServiceApiKey()
     {
-        if (!initialized.resultSuccess && initialized.ready)
+        if (!initialized)
         {
-            // Excessive usage of setting the operation struct
-            // legacy from initializing async with oauth            
-            initialized = initialized.ConstructInProgress();
-            onInitialized += response;
-
             service = new SheetsService(new BaseClientService.Initializer()
             {
                 ApiKey = apiKey,
                 ApplicationName = applicationName,
             });
 
-            initialized = initialized.ConstructUpdatedResult(true);
+            initialized = true;
             return true;
-        }
-        else
-        {
-            onInitialized += response;
-        }        
+        }               
         return false;
     }
 
-    public bool GetSheets(SheetsRequestResponse response)
+    public async void GetSheets(SheetsRequestResponse response)
     {
-        if(initialized.resultSuccess && retrievingData.ready)
+        onRequestResponse += response;
+        if (initialized && !retrievingData)
         {
-            retrievingData = retrievingData.ConstructInProgress();
-            onRequestResponse += response;
-            ThreadPool.QueueUserWorkItem(GetSheetsInternal);
-            return true;
-        }
-        else
-        {
-            onRequestResponse += response;
-        }
-        return false;
-    }
-
-    private void GetSheetsInternal(System.Object stateInfo)
-    {       
-        try
-        {
-            // Need to identify whether or not an exception / what exception is thrown for http errors
-            Task sheetsTask = GetSheetsTask();
-            sheetsTask.Wait();
-        }
-        catch (AggregateException ae)
-        {
-            ae.Handle((Exception e) =>
+            bool success = false;
+            retrievingData = true;                      
+            try
             {
-                if(e is GoogleApiException)
+                // Need to identify whether or not an exception / what exception is thrown for http errors
+                sheets = await GetSheetsTask();
+                // Lazy, assumes call was successful if no exceptions are thrown
+                success = true;
+            }
+            catch (AggregateException ae)
+            {
+                ae.Handle((Exception e) =>
                 {
-                    HandleApiException(e as GoogleApiException);                    
-                }
-                else
-                {
-                    HandleException(e);
-                }
-                return true;
-            });
-        }
-        catch (GoogleApiException e)
-        {
-            HandleApiException(e);
-        }
-        catch(Exception e)
-        {
-            HandleException(e);
+                    if (e is GoogleApiException)
+                    {
+                        HandleApiException(e as GoogleApiException);
+                    }
+                    else
+                    {
+                        HandleException(e);
+                    }
+                    return true;
+                });
+            }
+            catch (GoogleApiException e)
+            {
+                HandleApiException(e);
+            }
+            catch (Exception e)
+            {
+                HandleException(e);
+            }
+            retrievingData = false;
+
+            onRequestResponse?.Invoke(success, sheets);
+            onRequestResponse = null;
         }
     }
 
-    private async Task GetSheetsTask()
+    private async Task<JsonObject> GetSheetsTask()
     {
         JsonObject sheetsCollection = new JsonObject();
 
@@ -231,7 +177,7 @@ public class GoogleSheetsManager : MonoBehaviour
             }
         }
 
-        sheets = sheetsCollection;
+        return sheetsCollection;
     }
 
     private void HandleApiException(GoogleApiException e)
