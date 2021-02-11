@@ -151,22 +151,31 @@ public class GoogleSheetsManager : MonoBehaviour
                             for(int j = 1; j < values[i].Count; j++)
                             {
                                 JsonValue jsonValue;
-                                if (values[i][j] is bool)
+
+                                string valueString = values[i][j] as string;
+                                if(valueString != null)
                                 {
-                                    jsonValue = new JsonValue((bool)values[i][j]);
-                                }
-                                else if (values[i][j] is double)
-                                {
-                                    jsonValue = new JsonValue((double)values[i][j]);
-                                }
-                                else if (values[i][j] is string)
-                                {
-                                    jsonValue = new JsonValue((string)values[i][j]);
+                                    bool tryBool;
+                                    double tryDouble;
+
+                                    if (bool.TryParse(valueString, out tryBool))
+                                    {
+                                        jsonValue = new JsonValue(tryBool);
+                                    }
+                                    else if (double.TryParse(valueString, out tryDouble))
+                                    {
+                                        jsonValue = new JsonValue(tryDouble);
+                                    }
+                                    else
+                                    {
+                                        jsonValue = new JsonValue(valueString);
+                                    }
                                 }
                                 else
                                 {
                                     jsonValue = new JsonValue();
-                                }
+                                } 
+                                
                                 jsonRow.Add(keys[j], jsonValue);
                             }
 
