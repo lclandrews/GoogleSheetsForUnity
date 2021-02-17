@@ -1,7 +1,6 @@
 ﻿// System
 using System;
 using System.Collections.Generic;
-using System.Threading;
 using System.Threading.Tasks;
 
 // Google APIS
@@ -22,11 +21,58 @@ public delegate void SheetsRequestResponse(bool success, JsonObject sheets);
 
 public class GoogleSheetsManager : MonoBehaviour
 {
+    public static GoogleSheetsManager instance
+    {
+        get
+        {
+            if (_instance == null)
+            {
+                GoogleSheetsManager[] managers = Resources.FindObjectsOfTypeAll<GoogleSheetsManager>();
+
+                for (int i = 0; i < managers.Length; i++)
+                {
+                    if (managers[i].gameObject.scene.IsValid())
+                    {
+                        managers[i].Init();
+                        break;
+                    }
+                }
+            }
+
+            if (_instance == null)
+            {
+                CreateManagerMonoBehavior();
+            }
+
+            return _instance;
+        }
+    }
+    private static GoogleSheetsManager _instance;
+
+    private static bool CreateManagerMonoBehavior()
+    {
+        if (_instance == null)
+        {
+            GameObject go = new GameObject("GoogleSheetsManager_Instance");
+            GoogleSheetsManager manager = go.AddComponent<GoogleSheetsManager>();
+            manager.Init();
+            return true;
+        }
+        else
+        {
+            Debug.LogWarning("Cannot create manager mono behavior, a valid instance already exists.");
+        }
+        return false;
+    }
+
     private static string applicationName = "Unity";
 
-    public string apiKey = "AIzaSyAbY5-EjROctQUECA8RWai9q_c8Uzlusvc";
-    public string spreadsheetId = "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms";
-    public bool immediatelyRequestData = false;
+    [SerializeField]
+    private string apiKey = "";
+    [SerializeField]
+    private string spreadsheetId = "";
+    [SerializeField]
+    private bool immediatelyRequestData = false;
 
     public bool initialized { get; private set; } = false;
     public bool retrievingData { get; private set; } = false;
@@ -35,15 +81,20 @@ public class GoogleSheetsManager : MonoBehaviour
 
     private JsonObject sheets = null;
 
-    private SheetsService service = null;
-
-    private string fullCredentialPath = "";
-    private string fullTokenPath = "";
+    private SheetsService service = null;    
 
     private void Awake()
     {
-        InitializeServiceApiKey();
-    }
+        if (_instance != null && _instance != this)
+        {
+            Debug.LogWarning("A Google Sheets manager MonoBehaviour was destroyed because there was more than one instance.");
+            Destroy(this);
+        }
+        else
+        {
+            Init();
+        }
+    }    
 
     private void Update()
     {
@@ -54,10 +105,13 @@ public class GoogleSheetsManager : MonoBehaviour
         }
     }
 
-    private bool InitializeServiceApiKey()
+    private void Init()
     {
         if (!initialized)
         {
+            _instance = this;
+            DontDestroyOnLoad(gameObject);
+
             service = new SheetsService(new BaseClientService.Initializer()
             {
                 ApiKey = apiKey,
@@ -65,9 +119,7 @@ public class GoogleSheetsManager : MonoBehaviour
             });
 
             initialized = true;
-            return true;
-        }               
-        return false;
+        }        
     }
 
     public async void GetSheets(SheetsRequestResponse response)
@@ -153,27 +205,16 @@ public class GoogleSheetsManager : MonoBehaviour
                                 JsonValue jsonValue;
 
                                 string valueString = values[i][j] as string;
-                                if(valueString != null)
+                                if(!string.IsNullOrWhiteSpace(valueString))
                                 {
-                                    bool tryBool;
-                                    double tryDouble;
-
-                                    if (bool.TryParse(valueString, out tryBool))
-                                    {
-                                        jsonValue = new JsonValue(tryBool);
-                                    }
-                                    else if (double.TryParse(valueString, out tryDouble))
-                                    {
-                                        jsonValue = new JsonValue(tryDouble);
-                                    }
-                                    else
+                                    if(!JsonValue.TryParse(valueString, out jsonValue))
                                     {
                                         jsonValue = new JsonValue(valueString);
                                     }
                                 }
                                 else
                                 {
-                                    jsonValue = new JsonValue();
+                                    jsonValue = JsonValue.Null;
                                 } 
                                 
                                 jsonRow.Add(keys[j], jsonValue);

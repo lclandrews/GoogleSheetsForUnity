@@ -776,10 +776,20 @@ namespace LightJson
 		}
 
 		/// <summary>
-		/// Returns a value indicating whether this JsonValue is equal to the given object.
+		/// Trys to return a JsonValue by parsing the given string.
 		/// </summary>
-		/// <param name="obj">The object to test.</param>
-		public override bool Equals(object obj)
+		/// <param name="text">The JSON-formatted string to be parsed.</param>
+		/// <param name="outValue">The JSON Value populated if the operation was successful.</param>
+		public static bool TryParse(string text, out JsonValue outValue)
+        {
+            return JsonReader.TryParse(text, out outValue);
+        }
+
+        /// <summary>
+        /// Returns a value indicating whether this JsonValue is equal to the given object.
+        /// </summary>
+        /// <param name="obj">The object to test.</param>
+        public override bool Equals(object obj)
 		{
 			if (obj == null)
 			{

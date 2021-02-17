@@ -408,11 +408,11 @@ namespace LightJson.Serialization
 			return ReadJsonValue();
 		}
 
-		/// <summary>
-		/// Creates a JsonValue by using the given TextReader.
-		/// </summary>
-		/// <param name="reader">The TextReader used to read a JSON message.</param>
-		public static JsonValue Parse(TextReader reader)
+        /// <summary>
+        /// Creates a JsonValue by using the given TextReader.
+        /// </summary>
+        /// <param name="reader">The TextReader used to read a JSON message.</param>
+        public static JsonValue Parse(TextReader reader)
 		{
 			if (reader == null)
 			{
@@ -423,10 +423,33 @@ namespace LightJson.Serialization
 		}
 
 		/// <summary>
-		/// Creates a JsonValue by reader the JSON message in the given string.
+		/// Creates a JsonValue by using the given TextReader.
 		/// </summary>
-		/// <param name="source">The string containing the JSON message.</param>
-		public static JsonValue Parse(string source)
+		/// <param name="reader">The TextReader used to read a JSON message.</param>
+		/// /// <param name="outValue">The JSON Value populated if the operation was successful.</param>
+		public static bool TryParse(TextReader reader, out JsonValue outValue)
+        {
+			outValue = JsonValue.Null;
+			try
+            {
+				outValue = new JsonReader(reader).Parse();
+				return true;
+			}
+			catch(ArgumentNullException)
+            {
+				return false;
+            }
+            catch(JsonParseException)
+            {
+				return false;
+			}            
+        }
+
+        /// <summary>
+        /// Creates a JsonValue by reader the JSON message in the given string.
+        /// </summary>
+        /// <param name="source">The string containing the JSON message.</param>
+        public static JsonValue Parse(string source)
 		{
 			if (source == null)
 			{
@@ -440,10 +463,36 @@ namespace LightJson.Serialization
 		}
 
 		/// <summary>
-		/// Creates a JsonValue by reading the given file.
+		/// Creates a JsonValue by reader the JSON message in the given string.
 		/// </summary>
-		/// <param name="path">The file path to be read.</param>
-		public static JsonValue ParseFile(string path)
+		/// <param name="source">The string containing the JSON message.</param>
+		/// <param name="outValue">The JSON Value populated if the operation was successful.</param>
+		public static bool TryParse(string source, out JsonValue outValue)
+        {
+            outValue = JsonValue.Null;
+            try
+            {
+				using (var reader = new StringReader(source))
+                {
+                    outValue = new JsonReader(reader).Parse();
+                }
+                return true;
+            }
+            catch (ArgumentNullException)
+            {
+                return false;
+            }
+            catch (JsonParseException)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Creates a JsonValue by reading the given file.
+        /// </summary>
+        /// <param name="path">The file path to be read.</param>
+        public static JsonValue ParseFile(string path)
 		{
 			if (path == null)
 			{
@@ -455,5 +504,31 @@ namespace LightJson.Serialization
 				return new JsonReader(reader).Parse();
 			}
 		}
-	}
+
+		/// <summary>
+		/// Creates a JsonValue by reading the given file.
+		/// </summary>
+		/// <param name="path">The file path to be read.</param>
+		/// /// <param name="outValue">The JSON Value populated if the operation was successful.</param>
+		public static bool TryParseFile(string path, out JsonValue outValue)
+        {
+            outValue = JsonValue.Null;
+            try
+            {
+				using (var reader = new StreamReader(path))
+                {
+                    outValue = new JsonReader(reader).Parse();
+                }
+                return true;
+            }
+            catch (ArgumentNullException)
+            {
+                return false;
+            }
+            catch (JsonParseException)
+            {
+                return false;
+            }                        
+        }
+    }
 }

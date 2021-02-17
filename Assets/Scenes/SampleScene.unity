@@ -152,7 +152,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   apiKey: Some API Key
   spreadsheetId: A Spreadsheet ID
-  immediatelyRequestData: 0
+  immediatelyRequestData: 1
 --- !u!4 &489817773
 Transform:
   m_ObjectHideFlags: 0
