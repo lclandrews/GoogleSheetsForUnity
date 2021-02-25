@@ -50,7 +50,9 @@ namespace LightJson.Serialization
 					return ReadNumber();
 
 				case 't':
+				case 'T':
 				case 'f':
+				case 'F':
 					return ReadBoolean();
 
 				case 'n':
@@ -77,12 +79,16 @@ namespace LightJson.Serialization
 				case 't':
 					this.scanner.Assert("true");
 					return true;
-
-				case 'f':
+                case 'T':
+                    this.scanner.Assert("TRUE");
+                    return true;
+                case 'f':
 					this.scanner.Assert("false");
 					return false;
-
-				default:
+                case 'F':
+                    this.scanner.Assert("FALSE");
+                    return false;
+                default:
 					throw new JsonParseException(
 						ErrorType.InvalidOrUnexpectedCharacter,
 						this.scanner.Position
